@@ -23,7 +23,7 @@ Upload an **Excel (.xlsx)** or **Word (.docx)** file and ask natural language qu
 Your data is processed **in memory only** and never stored or transmitted.
 """)
 
-# ✅ Initialize session state for chat history and content
+# ✅ Initialize session state
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "content_for_gpt" not in st.session_state:
@@ -31,7 +31,7 @@ if "content_for_gpt" not in st.session_state:
 if "last_answer" not in st.session_state:
     st.session_state.last_answer = ""
 
-# ✅ File uploader for .xlsx and .docx
+# ✅ File uploader
 uploaded_file = st.file_uploader("Upload your file (.xlsx or .docx)", type=["xlsx", "docx"])
 
 def is_excel(filename):
@@ -73,9 +73,11 @@ if uploaded_file:
     except Exception as e:
         st.error(f"❌ Error reading file:\n\n{e}")
 
-# ✅ Ask a question about the content
+# ✅ Ask a question
 if st.session_state.content_for_gpt:
     question = st.text_input("Ask a question about the content:")
+    selected_columns = st.multiselect("Select columns to include in download (if available):", options=["Customer Name", "Notes"], default=["Customer Name", "Notes"])
+
     if question:
         with st.spinner("💡 Thinking..."):
             messages = [
@@ -99,14 +101,22 @@ if st.session_state.content_for_gpt:
             st.markdown("**💬 AI Response:**")
             st.markdown(answer)
 
-            # ✅ Output to Excel with better structure detection
+            # ✅ Smart Excel Output
             excel_buffer = io.BytesIO()
             with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
                 worksheet_name = "AI Response"
-
-                bullet_items = re.findall(r"\*\*(.*?)\*\*: (.*?)\n", answer)
-                if bullet_items:
-                    df_answer = pd.DataFrame(bullet_items, columns=["Customer Name", "Notes"])
+                data = []
+                pattern = r"\*\*(.*?)\*\*: (.*?)\n"
+                matches = re.findall(pattern, answer + "\n")
+                if matches:
+                    data = matches
+                else:
+                    # Fallback for structured groupings
+                    groups = re.findall(r"- \*\*(.*?)\*\*: (.*?)\n", answer + "\n")
+                    if groups:
+                        data = groups
+                if data:
+                    df_answer = pd.DataFrame(data, columns=selected_columns[:len(data[0])])
                 else:
                     lines = [line for line in answer.split("\n") if line.strip()]
                     df_answer = pd.DataFrame({"AI Response": lines})
@@ -125,7 +135,6 @@ if st.session_state.content_for_gpt:
             excel_buffer.seek(0)
             st.download_button("⬇️ Download as .xlsx (default)", data=excel_buffer, file_name="ai_response.xlsx")
 
-            # ✅ Offer additional download options
             file_format = st.selectbox("Also download as:", ["Text", "Word (.docx)", "PDF"])
             if file_format:
                 if file_format == "Text":
