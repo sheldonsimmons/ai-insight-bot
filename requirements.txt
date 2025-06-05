@@ -4,4 +4,5 @@ openai
 python-docx
 openpyxl
 fpdf
+xlsxwriter
 
