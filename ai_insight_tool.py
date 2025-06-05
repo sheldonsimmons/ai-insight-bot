@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import openai
@@ -59,7 +58,6 @@ if uploaded_file:
             st.warning("Unsupported file type.")
             content_for_gpt = None
 
-        # ✅ Ask AI a question
         if content_for_gpt:
             question = st.text_input("Ask a question about the content:")
             if question:
@@ -79,10 +77,10 @@ if uploaded_file:
                     st.session_state.chat_history.append({"role": "assistant", "content": answer})
                     st.markdown(f"**💬 AI Response:** {answer}")
 
-        # ✅ Summary option
-        if st.checkbox("🧠 Summarize This File with AI"):
-            with st.spinner("Summarizing your data..."):
-                summary_prompt = f"""
+            # ✅ Summary option
+            if st.checkbox("🧠 Summarize This File with AI"):
+                with st.spinner("Summarizing your data..."):
+                    summary_prompt = f"""
 You're an AI business analyst. Give a short summary of this customer data.
 Highlight:
 - Key themes or trends in the notes
@@ -91,16 +89,16 @@ Highlight:
 
 Data:
 {content_for_gpt}
-                """
-                summary_response = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[{"role": "user", "content": summary_prompt}],
-                    temperature=0.3,
-                    max_tokens=500
-                )
-                summary = summary_response.choices[0].message.content
-                st.markdown("### 🔍 AI Summary")
-                st.info(summary)
+                    """
+                    summary_response = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[{"role": "user", "content": summary_prompt}],
+                        temperature=0.3,
+                        max_tokens=500
+                    )
+                    summary = summary_response.choices[0].message.content
+                    st.markdown("### 🔍 AI Summary")
+                    st.info(summary)
 
     except Exception as e:
         st.error(f"❌ Error reading file:\n\n{e}")
