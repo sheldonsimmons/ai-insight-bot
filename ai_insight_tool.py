@@ -11,7 +11,7 @@ client = openai.OpenAI(
 )
 
 # ✅ UI: Title and Info
-st.title("\ud83d\udcca Spreadsheet + Document Insight Bot")
+st.title("📊 Spreadsheet + Document Insight Bot")
 st.markdown("""
 Upload an **Excel (.xlsx)** or **Word (.docx)** file and ask natural language questions about its content.  
 Your data is processed **in memory only** and never stored or transmitted.
@@ -39,7 +39,7 @@ if uploaded_file:
 
         if is_excel(file_name):
             df = pd.read_excel(uploaded_file)
-            st.success("\u2705 Excel file uploaded successfully.")
+            st.success("✅ Excel file uploaded successfully.")
             st.markdown("#### Preview (First 100 Rows)")
             st.dataframe(df.head(100))
 
@@ -55,8 +55,8 @@ if uploaded_file:
         elif is_word(file_name):
             doc = docx.Document(uploaded_file)
             full_text = "\n".join([para.text for para in doc.paragraphs])
-            st.success("\u2705 Word document uploaded successfully.")
-            st.text_area("\ud83d\udcc4 Document Preview", value=full_text[:1000], height=200)
+            st.success("✅ Word document uploaded successfully.")
+            st.text_area("📄 Document Preview", value=full_text[:1000], height=200)
             st.session_state.content_for_gpt = full_text[:3000]
 
         else:
@@ -64,14 +64,14 @@ if uploaded_file:
             st.session_state.content_for_gpt = ""
 
     except Exception as e:
-        st.error(f"\u274c Error reading file:\n\n{e}")
+        st.error(f"❌ Error reading file:\n\n{e}")
 
 # ✅ Ask a question about the content
 if st.session_state.content_for_gpt:
     question = st.text_input("Ask a question about the content:")
     if question:
         st.session_state.chat_history.append({"role": "user", "content": question})
-        with st.spinner("\ud83d\udca1 Thinking..."):
+        with st.spinner("💡 Thinking..."):
             messages = [
                 {"role": "system", "content": "You're an expert data and business assistant. Be helpful, concise, and insightful."},
                 {"role": "user", "content": f"Here is the content to analyze:\n{st.session_state.content_for_gpt}"},
@@ -85,11 +85,12 @@ if st.session_state.content_for_gpt:
             )
             answer = response.choices[0].message.content
             st.session_state.chat_history.append({"role": "assistant", "content": answer})
-            st.markdown(f"**\ud83d\udcac AI Response:** {answer}")
+            st.markdown("**💬 AI Response:**")
+            st.markdown(answer)
 
 # ✅ AI Summary toggle
 if st.session_state.content_for_gpt:
-    if st.button("\ud83e\uddd1\u200d\ud83e\uddec Summarize This File with AI"):
+    if st.button("Summarize File with AI"):
         with st.spinner("Summarizing your data..."):
             summary_prompt = f"""
 You're an AI business analyst. Give a short summary of this customer data.
@@ -108,7 +109,7 @@ Data:
                 max_tokens=500
             )
             summary = summary_response.choices[0].message.content
-            st.markdown("### \ud83d\udd0d AI Summary")
+            st.markdown("### 🔍 AI Summary")
             st.info(summary)
 
 # ✅ Optional: Display full chat log (for debugging)
