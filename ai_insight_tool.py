@@ -99,20 +99,14 @@ if st.session_state.content_for_gpt:
             st.markdown("**💬 AI Response:**")
             st.markdown(answer)
 
-            # ✅ Default output as formatted Excel
+            # ✅ Output to Excel with better structure detection
             excel_buffer = io.BytesIO()
             with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
                 worksheet_name = "AI Response"
 
-                rows = []
-                for line in answer.split("\n"):
-                    match = re.match(r"\d+\.\s+\*\*(.+?)\*\*\s+\((\d{4}-\d{2}-\d{2})\):\s+(.*)", line)
-                    if match:
-                        name, date, note = match.groups()
-                        rows.append((name.strip(), date, note))
-
-                if rows:
-                    df_answer = pd.DataFrame(rows, columns=["Customer Name", "Call Date", "Call Notes"])
+                bullet_items = re.findall(r"\*\*(.*?)\*\*: (.*?)\n", answer)
+                if bullet_items:
+                    df_answer = pd.DataFrame(bullet_items, columns=["Customer Name", "Notes"])
                 else:
                     lines = [line for line in answer.split("\n") if line.strip()]
                     df_answer = pd.DataFrame({"AI Response": lines})
