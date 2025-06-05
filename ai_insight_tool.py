@@ -37,7 +37,7 @@ if uploaded_file:
         if is_excel(file_name):
             df = pd.read_excel(uploaded_file)
             st.success("✅ Excel file uploaded successfully.")
-            st.markdown("#### Preview (First 200 Rows)")
+            st.markdown("#### Preview (First 100 Rows)")
             st.dataframe(df.head(100))
 
             max_rows = 100
