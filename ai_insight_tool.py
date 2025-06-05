@@ -33,6 +33,8 @@ if "last_answer" not in st.session_state:
     st.session_state.last_answer = ""
 if "json_data" not in st.session_state:
     st.session_state.json_data = None
+if "show_json" not in st.session_state:
+    st.session_state.show_json = False
 
 # ✅ File uploader
 uploaded_file = st.file_uploader("Upload your file (.xlsx or .docx)", type=["xlsx", "docx"])
@@ -101,12 +103,15 @@ if st.session_state.content_for_gpt:
             st.session_state.chat_history.append({"role": "assistant", "content": answer})
             st.session_state.last_answer = answer
             st.markdown("**💬 AI Response:**")
-            st.markdown(answer)
+            clean_answer = re.sub(r"```json.*?```", "", answer, flags=re.DOTALL)
+            st.markdown(clean_answer.strip())
 
             try:
                 match = re.search(r"```json\s*(.*?)```", answer, re.DOTALL)
                 if match:
                     st.session_state.json_data = json.loads(match.group(1))
+                else:
+                    st.session_state.json_data = None
             except:
                 st.session_state.json_data = None
 
