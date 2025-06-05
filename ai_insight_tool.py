@@ -5,6 +5,8 @@ import io
 import docx
 from docx import Document
 from fpdf import FPDF
+import xlsxwriter
+import tempfile
 
 # ✅ Initialize OpenAI client
 client = openai.OpenAI(
@@ -52,6 +54,7 @@ if uploaded_file:
 
             st.markdown("#### Preview (First Rows Analyzed)")
             st.dataframe(df)
+            st.session_state.df = df
             st.session_state.content_for_gpt = df.to_string(index=False)
 
         elif is_word(file_name):
@@ -94,17 +97,22 @@ if st.session_state.content_for_gpt:
             st.markdown("**💬 AI Response:**")
             st.markdown(answer)
 
-            # ✅ Default output as Excel
-            df_output = pd.DataFrame({"AI Response": [answer]})
+            # ✅ Default output as formatted Excel
             excel_buffer = io.BytesIO()
-            try:
-                import xlsxwriter
-                with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-                    df_output.to_excel(writer, index=False)
-                excel_buffer.seek(0)
-                st.download_button("⬇️ Download as .xlsx (default)", data=excel_buffer, file_name="ai_response.xlsx")
-            except ModuleNotFoundError:
-                st.error("❌ xlsxwriter not found. Please add it to requirements.txt")
+            with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+                worksheet_name = "AI Response"
+                if 'df' in st.session_state:
+                    df_answer = pd.DataFrame([x.split(" - ", 1) for x in answer.split("\n") if " - " in x], columns=["Customer", "Notes"])
+                else:
+                    df_answer = pd.DataFrame({"AI Response": answer.split("\n")})
+                df_answer.to_excel(writer, index=False, sheet_name=worksheet_name)
+                workbook = writer.book
+                worksheet = writer.sheets[worksheet_name]
+                header_format = workbook.add_format({'bold': True, 'bg_color': '#DCE6F1'})
+                for col_num, value in enumerate(df_answer.columns.values):
+                    worksheet.write(0, col_num, value, header_format)
+            excel_buffer.seek(0)
+            st.download_button("⬇️ Download as .xlsx (default)", data=excel_buffer, file_name="ai_response.xlsx")
 
             # ✅ Offer additional download options
             file_format = st.selectbox("Also download as:", ["Text", "Word (.docx)", "PDF"])
@@ -126,10 +134,10 @@ if st.session_state.content_for_gpt:
                     pdf.set_font("Arial", size=12)
                     for line in answer.split("\n"):
                         pdf.multi_cell(0, 10, line)
-                    pdf_buffer = io.BytesIO()
-                    pdf.output(pdf_buffer)
-                    pdf_buffer.seek(0)
-                    st.download_button("⬇️ Download as .pdf", data=pdf_buffer, file_name="ai_response.pdf")
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                        pdf.output(tmp_file.name)
+                        tmp_file.seek(0)
+                        st.download_button("⬇️ Download as .pdf", data=tmp_file.read(), file_name="ai_response.pdf")
 
 # ✅ AI Summary toggle
 if st.session_state.content_for_gpt:
