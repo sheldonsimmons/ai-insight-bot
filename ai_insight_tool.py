@@ -9,6 +9,7 @@ import xlsxwriter
 import tempfile
 import os
 import re
+import json
 
 # ✅ Initialize OpenAI client
 client = openai.OpenAI(
@@ -81,7 +82,7 @@ if st.session_state.content_for_gpt:
     if question:
         with st.spinner("💡 Thinking..."):
             messages = [
-                {"role": "system", "content": "You're an expert data and business assistant. Be helpful, concise, and insightful."},
+                {"role": "system", "content": "You're an expert data and business assistant. When helpful, format results as JSON array of objects with field names as keys."},
                 {"role": "user", "content": f"Here is the content to analyze:\n{st.session_state.content_for_gpt}"}
             ]
             for chat in st.session_state.chat_history:
@@ -92,7 +93,7 @@ if st.session_state.content_for_gpt:
                 model="gpt-4o",
                 messages=messages,
                 temperature=0.2,
-                max_tokens=700
+                max_tokens=1000
             )
             answer = response.choices[0].message.content
             st.session_state.chat_history.append({"role": "user", "content": question})
@@ -101,25 +102,36 @@ if st.session_state.content_for_gpt:
             st.markdown("**💬 AI Response:**")
             st.markdown(answer)
 
+            # ✅ Try to extract JSON if provided
+            json_data = None
+            try:
+                match = re.search(r'```json\\n(.*?)```', answer, re.DOTALL)
+                if match:
+                    json_data = json.loads(match.group(1))
+            except:
+                pass
+
             # ✅ Smart Excel Output
             excel_buffer = io.BytesIO()
             with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
                 worksheet_name = "AI Response"
-                data = []
-                pattern = r"\*\*(.*?)\*\*: (.*?)\n"
-                matches = re.findall(pattern, answer + "\n")
-                if matches:
-                    data = matches
+                if json_data:
+                    df_answer = pd.DataFrame(json_data)
                 else:
-                    # Fallback for structured groupings
-                    groups = re.findall(r"- \*\*(.*?)\*\*: (.*?)\n", answer + "\n")
-                    if groups:
-                        data = groups
-                if data:
-                    df_answer = pd.DataFrame(data, columns=selected_columns[:len(data[0])])
-                else:
-                    lines = [line for line in answer.split("\n") if line.strip()]
-                    df_answer = pd.DataFrame({"AI Response": lines})
+                    data = []
+                    pattern = r"\\*\\*(.*?)\\*\\*: (.*?)\\n"
+                    matches = re.findall(pattern, answer + "\n")
+                    if matches:
+                        data = matches
+                    else:
+                        groups = re.findall(r"- \\*\\*(.*?)\\*\\*: (.*?)\\n", answer + "\n")
+                        if groups:
+                            data = groups
+                    if data:
+                        df_answer = pd.DataFrame(data, columns=selected_columns[:len(data[0])])
+                    else:
+                        lines = [line for line in answer.split("\n") if line.strip()]
+                        df_answer = pd.DataFrame({"AI Response": lines})
 
                 df_answer.to_excel(writer, index=False, sheet_name=worksheet_name)
                 workbook = writer.book
