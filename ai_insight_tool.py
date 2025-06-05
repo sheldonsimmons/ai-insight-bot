@@ -104,15 +104,17 @@ if st.session_state.content_for_gpt:
             with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
                 worksheet_name = "AI Response"
 
-                # Try to extract structured table from answer if possible
-                table_pattern = r"(?P<name>\*\*.+?\*\*) \((?P<date>\d{4}-\d{2}-\d{2})\): (?P<note>.+)"
-                matches = re.findall(table_pattern, answer)
+                rows = []
+                for line in answer.split("\n"):
+                    match = re.match(r"\d+\.\s+\*\*(.+?)\*\*\s+\((\d{4}-\d{2}-\d{2})\):\s+(.*)", line)
+                    if match:
+                        name, date, note = match.groups()
+                        rows.append((name.strip(), date, note))
 
-                if matches:
-                    rows = [(name.strip("*"), date, note) for name, date, note in matches]
+                if rows:
                     df_answer = pd.DataFrame(rows, columns=["Customer Name", "Call Date", "Call Notes"])
                 else:
-                    lines = answer.split("\n")
+                    lines = [line for line in answer.split("\n") if line.strip()]
                     df_answer = pd.DataFrame({"AI Response": lines})
 
                 df_answer.to_excel(writer, index=False, sheet_name=worksheet_name)
