@@ -104,20 +104,15 @@ if st.session_state.content_for_gpt:
             with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
                 worksheet_name = "AI Response"
 
-                # Try to split into structured rows based on numbered list
-                lines = answer.split("\n")
-                rows = []
-                for line in lines:
-                    match = re.match(r"\d+\.\s+\*\*(.*?)\*\*\s*\((.*?)\):\s*(.*)", line)
-                    if match:
-                        name = match.group(1).strip()
-                        date = match.group(2).strip()
-                        note = match.group(3).strip()
-                        rows.append([name, date, note])
+                # Try to extract structured table from answer if possible
+                table_pattern = r"(?P<name>\*\*.+?\*\*) \((?P<date>\d{4}-\d{2}-\d{2})\): (?P<note>.+)"
+                matches = re.findall(table_pattern, answer)
 
-                if rows:
-                    df_answer = pd.DataFrame(rows, columns=["Customer", "Date", "Call Notes"])
+                if matches:
+                    rows = [(name.strip("*"), date, note) for name, date, note in matches]
+                    df_answer = pd.DataFrame(rows, columns=["Customer Name", "Call Date", "Call Notes"])
                 else:
+                    lines = answer.split("\n")
                     df_answer = pd.DataFrame({"AI Response": lines})
 
                 df_answer.to_excel(writer, index=False, sheet_name=worksheet_name)
@@ -127,7 +122,8 @@ if st.session_state.content_for_gpt:
                 for col_num, value in enumerate(df_answer.columns.values):
                     worksheet.write(0, col_num, value, header_format)
                 worksheet.autofilter(0, 0, len(df_answer), len(df_answer.columns) - 1)
-                for i, width in enumerate([20, 15, 70]):
+                for i, col in enumerate(df_answer.columns):
+                    width = max(df_answer[col].astype(str).map(len).max(), len(col)) + 2
                     worksheet.set_column(i, i, width)
 
             excel_buffer.seek(0)
