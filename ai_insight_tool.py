@@ -77,7 +77,6 @@ if uploaded_file:
 # ✅ Ask a question
 if st.session_state.content_for_gpt:
     question = st.text_input("Ask a question about the content:")
-    selected_columns = st.multiselect("Select columns to include in download (if available):", options=["Customer Name", "Notes"], default=["Customer Name", "Notes"])
 
     if question:
         with st.spinner("💡 Thinking..."):
@@ -102,36 +101,30 @@ if st.session_state.content_for_gpt:
             st.markdown("**💬 AI Response:**")
             st.markdown(answer)
 
-            # ✅ Try to extract JSON if provided
             json_data = None
             try:
-                match = re.search(r'```json\\n(.*?)```', answer, re.DOTALL)
+                match = re.search(r"```json\s*(.*?)```", answer, re.DOTALL)
                 if match:
                     json_data = json.loads(match.group(1))
             except:
                 pass
 
-            # ✅ Smart Excel Output
+            if json_data:
+                with st.expander("📦 View Extracted JSON Data"):
+                    st.json(json_data)
+                all_columns = list(json_data[0].keys()) if isinstance(json_data, list) else []
+                selected_columns = st.multiselect("Select columns to include in download (from JSON):", options=all_columns, default=all_columns)
+            else:
+                selected_columns = ["AI Response"]
+
             excel_buffer = io.BytesIO()
             with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
                 worksheet_name = "AI Response"
-                if json_data:
-                    df_answer = pd.DataFrame(json_data)
+                if json_data and selected_columns:
+                    df_answer = pd.DataFrame(json_data)[selected_columns]
                 else:
-                    data = []
-                    pattern = r"\\*\\*(.*?)\\*\\*: (.*?)\\n"
-                    matches = re.findall(pattern, answer + "\n")
-                    if matches:
-                        data = matches
-                    else:
-                        groups = re.findall(r"- \\*\\*(.*?)\\*\\*: (.*?)\\n", answer + "\n")
-                        if groups:
-                            data = groups
-                    if data:
-                        df_answer = pd.DataFrame(data, columns=selected_columns[:len(data[0])])
-                    else:
-                        lines = [line for line in answer.split("\n") if line.strip()]
-                        df_answer = pd.DataFrame({"AI Response": lines})
+                    lines = [line for line in answer.split("\n") if line.strip()]
+                    df_answer = pd.DataFrame({"AI Response": lines})
 
                 df_answer.to_excel(writer, index=False, sheet_name=worksheet_name)
                 workbook = writer.book
@@ -145,36 +138,7 @@ if st.session_state.content_for_gpt:
                     worksheet.set_column(i, i, width)
 
             excel_buffer.seek(0)
-            st.download_button("⬇️ Download as .xlsx (default)", data=excel_buffer, file_name="ai_response.xlsx")
-
-            file_format = st.selectbox("Also download as:", ["Text", "Word (.docx)", "PDF"])
-            if file_format:
-                if file_format == "Text":
-                    st.download_button("⬇️ Download as .txt", data=answer, file_name="ai_response.txt")
-
-                elif file_format == "Word (.docx)":
-                    doc_buffer = io.BytesIO()
-                    docx_file = Document()
-                    docx_file.add_paragraph(answer)
-                    docx_file.save(doc_buffer)
-                    doc_buffer.seek(0)
-                    st.download_button("⬇️ Download as .docx", data=doc_buffer, file_name="ai_response.docx")
-
-                elif file_format == "PDF":
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.set_font("Arial", size=12)
-                    for line in answer.split("\n"):
-                        try:
-                            pdf.multi_cell(0, 10, line.encode('latin-1', 'replace').decode('latin-1'))
-                        except:
-                            pdf.multi_cell(0, 10, line)
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-                        tmp_file_path = tmp_file.name
-                        pdf.output(tmp_file_path)
-                    with open(tmp_file_path, "rb") as f:
-                        st.download_button("⬇️ Download as .pdf", data=f.read(), file_name="ai_response.pdf")
-                    os.remove(tmp_file_path)
+            st.download_button("⬇️ Download as .xlsx", data=excel_buffer, file_name="ai_response.xlsx")
 
 # ✅ AI Summary toggle
 if st.session_state.content_for_gpt:
