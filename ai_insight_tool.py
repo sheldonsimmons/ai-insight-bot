@@ -85,7 +85,7 @@ if st.session_state.content_for_gpt:
     if question:
         with st.spinner("💡 Thinking..."):
             messages = [
-                {"role": "system", "content": "You're an expert data and business assistant. When helpful, format results as JSON array of objects with field names as keys."},
+                {"role": "system", "content": "You're an expert data and business assistant. When helpful, format structured data as a JSON array of objects and keep human-friendly summary text separate."},
                 {"role": "user", "content": f"Here is the content to analyze:\n{st.session_state.content_for_gpt}"}
             ]
             for chat in st.session_state.chat_history:
@@ -102,8 +102,9 @@ if st.session_state.content_for_gpt:
             st.session_state.chat_history.append({"role": "user", "content": question})
             st.session_state.chat_history.append({"role": "assistant", "content": answer})
             st.session_state.last_answer = answer
-            st.markdown("**💬 AI Response:**")
+
             clean_answer = re.sub(r"```json.*?```", "", answer, flags=re.DOTALL)
+            st.markdown("**💬 AI Response:**")
             st.markdown(clean_answer.strip())
 
             try:
@@ -115,6 +116,7 @@ if st.session_state.content_for_gpt:
             except:
                 st.session_state.json_data = None
 
+# ✅ Download section if JSON extracted
 if st.session_state.json_data:
     with st.expander("📦 View Extracted JSON Data"):
         st.download_button(
@@ -128,9 +130,11 @@ if st.session_state.json_data:
     selected_columns = st.multiselect("Select columns to include in download (from JSON):", options=all_columns, default=all_columns)
 
     if selected_columns:
+        df_selected = pd.DataFrame(st.session_state.json_data)[selected_columns]
+
+        # Excel Download
         excel_buffer = io.BytesIO()
         with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-            df_selected = pd.DataFrame(st.session_state.json_data)[selected_columns]
             sheet = "AI Response"
             df_selected.to_excel(writer, index=False, sheet_name=sheet)
             workbook = writer.book
@@ -142,9 +146,43 @@ if st.session_state.json_data:
             for i, col in enumerate(df_selected.columns):
                 width = max(df_selected[col].astype(str).map(len).max(), len(col)) + 2
                 worksheet.set_column(i, i, width)
-
         excel_buffer.seek(0)
         st.download_button("⬇️ Download as .xlsx", data=excel_buffer, file_name="ai_response.xlsx")
+
+        # Word Download
+        word_buffer = io.BytesIO()
+        doc = Document()
+        table = doc.add_table(rows=1, cols=len(selected_columns))
+        hdr_cells = table.rows[0].cells
+        for i, col in enumerate(selected_columns):
+            hdr_cells[i].text = col
+        for index, row in df_selected.iterrows():
+            row_cells = table.add_row().cells
+            for i, col in enumerate(selected_columns):
+                row_cells[i].text = str(row[col])
+        doc.save(word_buffer)
+        word_buffer.seek(0)
+        st.download_button("⬇️ Download as .docx", data=word_buffer, file_name="ai_response.docx")
+
+        # PDF Download
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=10)
+        col_widths = [40] * len(selected_columns)
+        row_height = 10
+        for col in selected_columns:
+            pdf.cell(col_widths[0], row_height, txt=col, border=1)
+        pdf.ln()
+        for _, row in df_selected.iterrows():
+            for i, col in enumerate(selected_columns):
+                text = str(row[col])[:60]
+                pdf.cell(col_widths[i], row_height, txt=text, border=1)
+            pdf.ln()
+        pdf_buffer = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        pdf.output(pdf_buffer.name)
+        with open(pdf_buffer.name, "rb") as f:
+            st.download_button("⬇️ Download as .pdf", data=f, file_name="ai_response.pdf")
+        os.unlink(pdf_buffer.name)
 
 # ✅ AI Summary toggle
 if st.session_state.content_for_gpt:
