@@ -18,7 +18,6 @@ Your data is processed **in memory only** and never stored or transmitted.
 """)
 
 # ✅ Initialize session state for chat history and content
-debug = False
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "content_for_gpt" not in st.session_state:
@@ -102,18 +101,24 @@ Highlight:
 Data:
 {st.session_state.content_for_gpt}
             """
+            messages = [
+                {"role": "system", "content": "You're an expert data and business assistant. Be helpful, concise, and insightful."},
+                {"role": "user", "content": summary_prompt},
+                *st.session_state.chat_history
+            ]
             summary_response = client.chat.completions.create(
                 model="gpt-4o",
-                messages=[{"role": "user", "content": summary_prompt}],
+                messages=messages,
                 temperature=0.3,
-                max_tokens=500
+                max_tokens=700
             )
             summary = summary_response.choices[0].message.content
+            st.session_state.chat_history.append({"role": "assistant", "content": summary})
             st.markdown("### 🔍 AI Summary")
             st.info(summary)
 
-# ✅ Optional: Display full chat log (for debugging)
-if debug and st.session_state.chat_history:
-    st.write("### Debug: Chat History")
-    for i, msg in enumerate(st.session_state.chat_history):
-        st.write(f"{i+1}. {msg['role']}: {msg['content']}")
+# ✅ Optional: Display full chat log
+if st.session_state.chat_history:
+    with st.expander("🗂 View Chat History"):
+        for i, msg in enumerate(st.session_state.chat_history):
+            st.markdown(f"**{msg['role'].capitalize()}:** {msg['content']}")
