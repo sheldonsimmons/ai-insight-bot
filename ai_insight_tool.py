@@ -103,18 +103,19 @@ if st.session_state.content_for_gpt:
             st.session_state.chat_history.append({"role": "assistant", "content": answer})
             st.session_state.last_answer = answer
 
-            human_friendly_text = re.sub(r"```json.*?```", "", answer, flags=re.DOTALL).strip()
-            st.markdown("**💬 AI Response:**")
-            st.markdown(human_friendly_text)
-
-            try:
-                match = re.search(r"```json\s*(.*?)```", answer, re.DOTALL)
-                if match:
+            # 🧠 Extract JSON from markdown if it exists
+            match = re.search(r"```json\s*(.*?)```", answer, re.DOTALL)
+            if match:
+                try:
                     st.session_state.json_data = json.loads(match.group(1))
-                else:
+                except:
                     st.session_state.json_data = None
-            except:
+                answer = re.sub(r"```json.*?```", "", answer, flags=re.DOTALL).strip()
+            else:
                 st.session_state.json_data = None
+
+            st.markdown("**💬 AI Response:**")
+            st.markdown(answer)
 
 # ✅ Download section if JSON extracted
 if st.session_state.json_data:
