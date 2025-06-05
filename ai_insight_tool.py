@@ -32,6 +32,8 @@ def is_excel(filename):
 def is_word(filename):
     return filename.lower().endswith(".docx")
 
+MAX_ROWS = 500
+
 if uploaded_file:
     try:
         file_name = uploaded_file.name
@@ -39,17 +41,14 @@ if uploaded_file:
         if is_excel(file_name):
             df = pd.read_excel(uploaded_file)
             st.success("✅ Excel file uploaded successfully.")
-            st.markdown("#### Preview (First 100 Rows)")
-            st.dataframe(df.head(100))
 
-            max_rows = 100
-            if len(df) > max_rows:
-                st.warning(f"Only the first {max_rows} rows will be analyzed.")
-                content = df.head(max_rows).to_string(index=False)
-            else:
-                content = df.to_string(index=False)
+            if len(df) > MAX_ROWS:
+                st.warning(f"This file has {len(df)} rows. For best performance, only the first {MAX_ROWS} rows will be used.")
+                df = df.head(MAX_ROWS)
 
-            st.session_state.content_for_gpt = content
+            st.markdown("#### Preview (First Rows Analyzed)")
+            st.dataframe(df)
+            st.session_state.content_for_gpt = df.to_string(index=False)
 
         elif is_word(file_name):
             doc = docx.Document(uploaded_file)
