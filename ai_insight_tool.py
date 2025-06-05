@@ -69,13 +69,15 @@ if uploaded_file:
 if st.session_state.content_for_gpt:
     question = st.text_input("Ask a question about the content:")
     if question:
-        st.session_state.chat_history.append({"role": "user", "content": question})
         with st.spinner("💡 Thinking..."):
             messages = [
                 {"role": "system", "content": "You're an expert data and business assistant. Be helpful, concise, and insightful."},
-                {"role": "user", "content": f"Here is the content to analyze:\n{st.session_state.content_for_gpt}"},
-                *st.session_state.chat_history
+                {"role": "user", "content": f"Here is the content to analyze:\n{st.session_state.content_for_gpt}"}
             ]
+            for chat in st.session_state.chat_history:
+                messages.append(chat)
+            messages.append({"role": "user", "content": question})
+
             response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=messages,
@@ -83,6 +85,7 @@ if st.session_state.content_for_gpt:
                 max_tokens=700
             )
             answer = response.choices[0].message.content
+            st.session_state.chat_history.append({"role": "user", "content": question})
             st.session_state.chat_history.append({"role": "assistant", "content": answer})
             st.markdown("**💬 AI Response:**")
             st.markdown(answer)
@@ -103,9 +106,11 @@ Data:
             """
             messages = [
                 {"role": "system", "content": "You're an expert data and business assistant. Be helpful, concise, and insightful."},
-                {"role": "user", "content": summary_prompt},
-                *st.session_state.chat_history
+                {"role": "user", "content": summary_prompt}
             ]
+            for chat in st.session_state.chat_history:
+                messages.append(chat)
+
             summary_response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=messages,
