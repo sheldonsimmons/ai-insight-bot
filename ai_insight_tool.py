@@ -94,30 +94,25 @@ if st.session_state.content_for_gpt:
     if st.button("Summarize File with AI"):
         with st.spinner("Summarizing your data..."):
             summary_prompt = f"""
-You're an AI business analyst. Give a short summary of this customer data.
-Highlight:
-- Key themes or trends in the notes
-- Average opportunity score and spend
-- Potential next steps based on what you see
+You're an AI business analyst. Give a short summary of this customer data. Focus only on the contents below — do not refer to previous questions. Your job is to:
 
-Data:
+- Highlight themes and trends in the customer notes
+- Mention average opportunity score and spend if possible
+- Suggest smart next steps for marketing or sales
+
+Here’s the data:
 {st.session_state.content_for_gpt}
             """
-            messages = [
-                {"role": "system", "content": "You're an expert data and business assistant. Be helpful, concise, and insightful."},
-                {"role": "user", "content": summary_prompt}
-            ]
-            for chat in st.session_state.chat_history:
-                messages.append(chat)
-
             summary_response = client.chat.completions.create(
                 model="gpt-4o",
-                messages=messages,
+                messages=[
+                    {"role": "system", "content": "You're an expert data and business analyst. Be helpful, concise, and insightful."},
+                    {"role": "user", "content": summary_prompt}
+                ],
                 temperature=0.3,
                 max_tokens=700
             )
             summary = summary_response.choices[0].message.content
-            st.session_state.chat_history.append({"role": "assistant", "content": summary})
             st.markdown("### 🔍 AI Summary")
             st.info(summary)
 
