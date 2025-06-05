@@ -94,38 +94,42 @@ if st.session_state.content_for_gpt:
             st.markdown("**💬 AI Response:**")
             st.markdown(answer)
 
-        # ✅ Default output as Excel
-        df_output = pd.DataFrame({"AI Response": [answer]})
-        excel_buffer = io.BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-            df_output.to_excel(writer, index=False)
-        excel_buffer.seek(0)
-        st.download_button("⬇️ Download as .xlsx (default)", data=excel_buffer, file_name="ai_response.xlsx")
+            # ✅ Default output as Excel
+            df_output = pd.DataFrame({"AI Response": [answer]})
+            excel_buffer = io.BytesIO()
+            try:
+                import xlsxwriter
+                with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+                    df_output.to_excel(writer, index=False)
+                excel_buffer.seek(0)
+                st.download_button("⬇️ Download as .xlsx (default)", data=excel_buffer, file_name="ai_response.xlsx")
+            except ModuleNotFoundError:
+                st.error("❌ xlsxwriter not found. Please add it to requirements.txt")
 
-        # ✅ Offer additional download options
-        file_format = st.selectbox("Also download as:", ["Text", "Word (.docx)", "PDF"])
-        if file_format:
-            if file_format == "Text":
-                st.download_button("⬇️ Download as .txt", data=answer, file_name="ai_response.txt")
+            # ✅ Offer additional download options
+            file_format = st.selectbox("Also download as:", ["Text", "Word (.docx)", "PDF"])
+            if file_format:
+                if file_format == "Text":
+                    st.download_button("⬇️ Download as .txt", data=answer, file_name="ai_response.txt")
 
-            elif file_format == "Word (.docx)":
-                doc_buffer = io.BytesIO()
-                docx_file = Document()
-                docx_file.add_paragraph(answer)
-                docx_file.save(doc_buffer)
-                doc_buffer.seek(0)
-                st.download_button("⬇️ Download as .docx", data=doc_buffer, file_name="ai_response.docx")
+                elif file_format == "Word (.docx)":
+                    doc_buffer = io.BytesIO()
+                    docx_file = Document()
+                    docx_file.add_paragraph(answer)
+                    docx_file.save(doc_buffer)
+                    doc_buffer.seek(0)
+                    st.download_button("⬇️ Download as .docx", data=doc_buffer, file_name="ai_response.docx")
 
-            elif file_format == "PDF":
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_font("Arial", size=12)
-                for line in answer.split("\n"):
-                    pdf.multi_cell(0, 10, line)
-                pdf_buffer = io.BytesIO()
-                pdf.output(pdf_buffer)
-                pdf_buffer.seek(0)
-                st.download_button("⬇️ Download as .pdf", data=pdf_buffer, file_name="ai_response.pdf")
+                elif file_format == "PDF":
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_font("Arial", size=12)
+                    for line in answer.split("\n"):
+                        pdf.multi_cell(0, 10, line)
+                    pdf_buffer = io.BytesIO()
+                    pdf.output(pdf_buffer)
+                    pdf_buffer.seek(0)
+                    st.download_button("⬇️ Download as .pdf", data=pdf_buffer, file_name="ai_response.pdf")
 
 # ✅ AI Summary toggle
 if st.session_state.content_for_gpt:
