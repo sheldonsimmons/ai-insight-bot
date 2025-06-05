@@ -103,9 +103,9 @@ if st.session_state.content_for_gpt:
             st.session_state.chat_history.append({"role": "assistant", "content": answer})
             st.session_state.last_answer = answer
 
-            clean_answer = re.sub(r"```json.*?```", "", answer, flags=re.DOTALL)
+            human_friendly_text = re.sub(r"```json.*?```", "", answer, flags=re.DOTALL).strip()
             st.markdown("**💬 AI Response:**")
-            st.markdown(clean_answer.strip())
+            st.markdown(human_friendly_text)
 
             try:
                 match = re.search(r"```json\s*(.*?)```", answer, re.DOTALL)
