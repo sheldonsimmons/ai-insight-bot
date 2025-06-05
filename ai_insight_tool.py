@@ -31,6 +31,8 @@ if "content_for_gpt" not in st.session_state:
     st.session_state.content_for_gpt = ""
 if "last_answer" not in st.session_state:
     st.session_state.last_answer = ""
+if "json_data" not in st.session_state:
+    st.session_state.json_data = None
 
 # ✅ File uploader
 uploaded_file = st.file_uploader("Upload your file (.xlsx or .docx)", type=["xlsx", "docx"])
@@ -101,44 +103,43 @@ if st.session_state.content_for_gpt:
             st.markdown("**💬 AI Response:**")
             st.markdown(answer)
 
-            json_data = None
             try:
                 match = re.search(r"```json\s*(.*?)```", answer, re.DOTALL)
                 if match:
-                    json_data = json.loads(match.group(1))
+                    st.session_state.json_data = json.loads(match.group(1))
             except:
-                pass
+                st.session_state.json_data = None
 
-            if json_data:
-                with st.expander("📦 View Extracted JSON Data"):
-                    st.json(json_data)
-                all_columns = list(json_data[0].keys()) if isinstance(json_data, list) else []
-                selected_columns = st.multiselect("Select columns to include in download (from JSON):", options=all_columns, default=all_columns)
-            else:
-                selected_columns = ["AI Response"]
+if st.session_state.json_data:
+    with st.expander("📦 View Extracted JSON Data"):
+        st.download_button(
+            "⬇️ Download JSON", 
+            data=json.dumps(st.session_state.json_data, indent=2), 
+            file_name="ai_response.json", 
+            mime="application/json"
+        )
 
-            excel_buffer = io.BytesIO()
-            with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-                worksheet_name = "AI Response"
-                if json_data and selected_columns:
-                    df_answer = pd.DataFrame(json_data)[selected_columns]
-                else:
-                    lines = [line for line in answer.split("\n") if line.strip()]
-                    df_answer = pd.DataFrame({"AI Response": lines})
+    all_columns = list(st.session_state.json_data[0].keys()) if isinstance(st.session_state.json_data, list) else []
+    selected_columns = st.multiselect("Select columns to include in download (from JSON):", options=all_columns, default=all_columns)
 
-                df_answer.to_excel(writer, index=False, sheet_name=worksheet_name)
-                workbook = writer.book
-                worksheet = writer.sheets[worksheet_name]
-                header_format = workbook.add_format({'bold': True, 'bg_color': '#DCE6F1'})
-                for col_num, value in enumerate(df_answer.columns.values):
-                    worksheet.write(0, col_num, value, header_format)
-                worksheet.autofilter(0, 0, len(df_answer), len(df_answer.columns) - 1)
-                for i, col in enumerate(df_answer.columns):
-                    width = max(df_answer[col].astype(str).map(len).max(), len(col)) + 2
-                    worksheet.set_column(i, i, width)
+    if selected_columns:
+        excel_buffer = io.BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+            df_selected = pd.DataFrame(st.session_state.json_data)[selected_columns]
+            sheet = "AI Response"
+            df_selected.to_excel(writer, index=False, sheet_name=sheet)
+            workbook = writer.book
+            worksheet = writer.sheets[sheet]
+            header_format = workbook.add_format({'bold': True, 'bg_color': '#DCE6F1'})
+            for col_num, value in enumerate(df_selected.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+            worksheet.autofilter(0, 0, len(df_selected), len(df_selected.columns) - 1)
+            for i, col in enumerate(df_selected.columns):
+                width = max(df_selected[col].astype(str).map(len).max(), len(col)) + 2
+                worksheet.set_column(i, i, width)
 
-            excel_buffer.seek(0)
-            st.download_button("⬇️ Download as .xlsx", data=excel_buffer, file_name="ai_response.xlsx")
+        excel_buffer.seek(0)
+        st.download_button("⬇️ Download as .xlsx", data=excel_buffer, file_name="ai_response.xlsx")
 
 # ✅ AI Summary toggle
 if st.session_state.content_for_gpt:
