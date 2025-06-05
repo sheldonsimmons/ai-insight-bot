@@ -7,6 +7,8 @@ from docx import Document
 from fpdf import FPDF
 import xlsxwriter
 import tempfile
+import os
+import re
 
 # ✅ Initialize OpenAI client
 client = openai.OpenAI(
@@ -101,16 +103,33 @@ if st.session_state.content_for_gpt:
             excel_buffer = io.BytesIO()
             with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
                 worksheet_name = "AI Response"
-                if 'df' in st.session_state:
-                    df_answer = pd.DataFrame([x.split(" - ", 1) for x in answer.split("\n") if " - " in x], columns=["Customer", "Notes"])
+
+                # Try to split into structured rows based on numbered list
+                lines = answer.split("\n")
+                rows = []
+                for line in lines:
+                    match = re.match(r"\d+\.\s+\*\*(.*?)\*\*\s*\((.*?)\):\s*(.*)", line)
+                    if match:
+                        name = match.group(1).strip()
+                        date = match.group(2).strip()
+                        note = match.group(3).strip()
+                        rows.append([name, date, note])
+
+                if rows:
+                    df_answer = pd.DataFrame(rows, columns=["Customer", "Date", "Call Notes"])
                 else:
-                    df_answer = pd.DataFrame({"AI Response": answer.split("\n")})
+                    df_answer = pd.DataFrame({"AI Response": lines})
+
                 df_answer.to_excel(writer, index=False, sheet_name=worksheet_name)
                 workbook = writer.book
                 worksheet = writer.sheets[worksheet_name]
                 header_format = workbook.add_format({'bold': True, 'bg_color': '#DCE6F1'})
                 for col_num, value in enumerate(df_answer.columns.values):
                     worksheet.write(0, col_num, value, header_format)
+                worksheet.autofilter(0, 0, len(df_answer), len(df_answer.columns) - 1)
+                for i, width in enumerate([20, 15, 70]):
+                    worksheet.set_column(i, i, width)
+
             excel_buffer.seek(0)
             st.download_button("⬇️ Download as .xlsx (default)", data=excel_buffer, file_name="ai_response.xlsx")
 
@@ -133,11 +152,16 @@ if st.session_state.content_for_gpt:
                     pdf.add_page()
                     pdf.set_font("Arial", size=12)
                     for line in answer.split("\n"):
-                        pdf.multi_cell(0, 10, line)
+                        try:
+                            pdf.multi_cell(0, 10, line.encode('latin-1', 'replace').decode('latin-1'))
+                        except:
+                            pdf.multi_cell(0, 10, line)
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-                        pdf.output(tmp_file.name)
-                        tmp_file.seek(0)
-                        st.download_button("⬇️ Download as .pdf", data=tmp_file.read(), file_name="ai_response.pdf")
+                        tmp_file_path = tmp_file.name
+                        pdf.output(tmp_file_path)
+                    with open(tmp_file_path, "rb") as f:
+                        st.download_button("⬇️ Download as .pdf", data=f.read(), file_name="ai_response.pdf")
+                    os.remove(tmp_file_path)
 
 # ✅ AI Summary toggle
 if st.session_state.content_for_gpt:
