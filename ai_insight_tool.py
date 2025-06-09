@@ -81,8 +81,9 @@ if uploaded_file:
 # ✅ Ask a question
 if st.session_state.content_for_gpt:
     question = st.text_input("Ask a question about the content:")
+    submitted = st.button("Submit")
 
-    if question:
+    if submitted and question:
         with st.spinner("💡 Thinking..."):
             messages = [
                 {"role": "system", "content": "You're an expert data and business assistant. When helpful, format structured data as a JSON array of objects and keep human-friendly summary text separate."},
@@ -103,19 +104,19 @@ if st.session_state.content_for_gpt:
             st.session_state.chat_history.append({"role": "assistant", "content": answer})
             st.session_state.last_answer = answer
 
-            # 🧠 Extract JSON from markdown if it exists
-            match = re.search(r"```json\s*(.*?)```", answer, re.DOTALL)
-            if match:
-                try:
-                    st.session_state.json_data = json.loads(match.group(1))
-                except:
-                    st.session_state.json_data = None
-                answer = re.sub(r"```json.*?```", "", answer, flags=re.DOTALL).strip()
-            else:
-                st.session_state.json_data = None
-
+            # Extract and show human-friendly part first
+            human_friendly_text = re.sub(r"```json.*?```", "", answer, flags=re.DOTALL).strip()
             st.markdown("**💬 AI Response:**")
-            st.markdown(answer)
+            st.markdown(human_friendly_text)
+
+            try:
+                match = re.search(r"```json\s*(.*?)```", answer, re.DOTALL)
+                if match:
+                    st.session_state.json_data = json.loads(match.group(1))
+                else:
+                    st.session_state.json_data = None
+            except:
+                st.session_state.json_data = None
 
 # ✅ Download section if JSON extracted
 if st.session_state.json_data:
@@ -132,6 +133,10 @@ if st.session_state.json_data:
 
     if selected_columns:
         df_selected = pd.DataFrame(st.session_state.json_data)[selected_columns]
+
+        # Show as table
+        st.markdown("#### 📋 Preview Data Before Download")
+        st.dataframe(df_selected)
 
         # Excel Download
         excel_buffer = io.BytesIO()
